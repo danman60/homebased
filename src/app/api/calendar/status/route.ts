@@ -1,39 +1,28 @@
 // Calendar connection status API endpoint
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
+import { getAuthenticatedUser } from '@/lib/auth-helpers';
 
-export async function GET(request: NextRequest) {
+interface CalendarInfo {
+  calendar_id: string;
+  calendar_name: string;
+  is_primary: boolean;
+  is_selected_for_homebase: boolean;
+}
+
+export async function GET(_request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const familyId = url.searchParams.get('familyId');
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-    if (!familyId) {
-      return NextResponse.json(
-        { error: 'Missing familyId parameter' },
-        { status: 400 }
-      );
-    }
-
-    const db = new DatabaseClient(supabaseServer);
-    
-    // Get integration accounts for this family
-    const integrations = await db.getIntegrationAccounts(familyId);
+    const integrations = await auth.db.getIntegrationAccounts(auth.family_id);
     const googleIntegrations = integrations.filter(i => i.provider === 'google_calendar');
 
-    const isConnected = googleIntegrations.length > 0 && 
+    const isConnected = googleIntegrations.length > 0 &&
                        googleIntegrations.some(i => i.access_token);
 
-    // Get last sync time (you might want to store this in the database)
-    const lastSync = googleIntegrations.length > 0 
-      ? googleIntegrations[0].updated_at 
+    const lastSync = googleIntegrations.length > 0
+      ? googleIntegrations[0].updated_at
       : null;
-
-    interface CalendarInfo {
-      calendar_id: string;
-      calendar_name: string;
-      is_primary: boolean;
-      is_selected_for_homebase: boolean;
-    }
 
     const connectedAccounts = googleIntegrations.map(integration => ({
       id: integration.id,
@@ -55,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Calendar status error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

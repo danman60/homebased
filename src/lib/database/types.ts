@@ -27,6 +27,7 @@ export interface Database {
       users: {
         Row: {
           id: string;
+          auth_user_id: string | null;
           family_id: string;
           email: string;
           role: 'parent_a' | 'parent_b';
@@ -36,6 +37,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          auth_user_id?: string | null;
           family_id: string;
           email: string;
           role: 'parent_a' | 'parent_b';
@@ -45,6 +47,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          auth_user_id?: string | null;
           family_id?: string;
           email?: string;
           role?: 'parent_a' | 'parent_b';

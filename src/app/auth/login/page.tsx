@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const authError = searchParams.get('error');
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +33,12 @@ function LoginForm() {
               Your family&apos;s command center
             </p>
           </div>
+
+          {authError && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+              Authentication failed. Please try again.
+            </div>
+          )}
 
           <button
             onClick={handleGoogleLogin}

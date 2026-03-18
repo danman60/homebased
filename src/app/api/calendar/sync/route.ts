@@ -1,9 +1,10 @@
 // Calendar synchronization API endpoints
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleCalendarAdapter } from '@/lib/integrations/google-calendar';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
+import { DatabaseClient } from '@/lib/database/client';
 import { addWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { SyncConflict } from '@/types/domain';
+import { getAuthenticatedUser } from '@/lib/auth-helpers';
 
 interface CalendarSyncRequest {
   familyId: string;
@@ -34,21 +35,22 @@ interface CalendarInfo {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CalendarSyncRequest = await request.json();
-    const { familyId, parentIds, action, forceFullSync = false } = body;
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-    if (!familyId || !parentIds || parentIds.length === 0 || !action) {
+    const body: CalendarSyncRequest = await request.json();
+    const { parentIds, action, forceFullSync = false } = body;
+    const familyId = auth.family_id;
+
+    if (!parentIds || parentIds.length === 0 || !action) {
       return NextResponse.json(
-        { error: 'Missing required fields: familyId, parentIds, action' },
+        { error: 'Missing required fields: parentIds, action' },
         { status: 400 }
       );
     }
 
-    const db = new DatabaseClient(supabaseServer);
-
-    // Get family timezone
-    const family = await db.getFamily(familyId);
-    const familyTimezone = family?.timezone || 'America/New_York';
+    const db = auth.db;
+    const familyTimezone = auth.timezone;
     const adapter = new GoogleCalendarAdapter(
       {
         clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
@@ -79,15 +81,18 @@ export async function POST(request: NextRequest) {
 // GET endpoint for pull-specific requests with query parameters
 export async function GET(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
     const url = new URL(request.url);
-    const familyId = url.searchParams.get('familyId');
     const parentIds = url.searchParams.get('parentIds')?.split(',') || [];
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
+    const familyId = auth.family_id;
 
-    if (!familyId || parentIds.length === 0) {
+    if (parentIds.length === 0) {
       return NextResponse.json(
-        { error: 'Missing required parameters: familyId, parentIds' },
+        { error: 'Missing required parameters: parentIds' },
         { status: 400 }
       );
     }
@@ -96,7 +101,7 @@ export async function GET(request: NextRequest) {
     const start = startDate ? new Date(startDate) : startOfWeek(new Date());
     const end = endDate ? new Date(endDate) : endOfWeek(addWeeks(start, 1));
 
-    const db = new DatabaseClient(supabaseServer);
+    const db = auth.db;
     const adapter = new GoogleCalendarAdapter(
       {
         clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID!,

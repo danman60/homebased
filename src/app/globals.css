@@ -51,10 +51,11 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--border, #e2e8f0);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background, #ffffff);
+    color: var(--foreground, #0f172a);
   }
 }
 
