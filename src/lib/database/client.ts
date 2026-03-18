@@ -47,11 +47,11 @@ export class DatabaseClient {
   // Family operations
   async getFamily(familyId: string) {
     const { data, error } = await this.client
-      .from('families')
+      .from('hb_families')
       .select('*')
       .eq('id', familyId)
       .single();
-    
+
     if (error) throw error;
     return data;
   }
@@ -59,23 +59,34 @@ export class DatabaseClient {
   // User operations
   async getFamilyUsers(familyId: string) {
     const { data, error } = await this.client
-      .from('users')
+      .from('hb_users')
       .select('*')
       .eq('family_id', familyId);
-    
+
     if (error) throw error;
     return data;
   }
 
   async getUser(userId: string) {
     const { data, error } = await this.client
-      .from('users')
+      .from('hb_users')
       .select('*')
       .eq('id', userId)
       .single();
-    
+
     if (error) throw error;
     return data as UserRow;
+  }
+
+  async getUserByAuthId(authUserId: string) {
+    const { data, error } = await this.client
+      .from('hb_users')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .single();
+
+    if (error) throw error;
+    return data as UserRow & { auth_user_id: string };
   }
 
   // Task operations
@@ -86,10 +97,10 @@ export class DatabaseClient {
     assigneeId?: string;
   }) {
     let query = this.client
-      .from('tasks')
+      .from('hb_tasks')
       .select(`
         *,
-        assignee:users(*)
+        assignee:hb_users(*)
       `)
       .eq('family_id', familyId);
 
@@ -113,11 +124,11 @@ export class DatabaseClient {
 
   async createTask(task: TaskInsert): Promise<TaskWithAssignee> {
     const { data, error } = await this.client
-      .from('tasks')
+      .from('hb_tasks')
       .insert(task)
       .select(`
         *,
-        assignee:users(*)
+        assignee:hb_users(*)
       `)
       .single();
 
@@ -127,12 +138,12 @@ export class DatabaseClient {
 
   async updateTask(taskId: string, updates: TaskUpdate): Promise<TaskWithAssignee> {
     const { data, error } = await this.client
-      .from('tasks')
+      .from('hb_tasks')
       .update(updates)
       .eq('id', taskId)
       .select(`
         *,
-        assignee:users(*)
+        assignee:hb_users(*)
       `)
       .single();
 
@@ -142,10 +153,10 @@ export class DatabaseClient {
 
   async deleteTask(taskId: string) {
     const { error } = await this.client
-      .from('tasks')
+      .from('hb_tasks')
       .delete()
       .eq('id', taskId);
-    
+
     if (error) throw error;
     return { deleted: true };
   }
@@ -153,10 +164,10 @@ export class DatabaseClient {
   // Availability operations
   async getAvailabilityBlocks(userId: string, startDate: string, endDate: string): Promise<AvailabilityWithUser[]> {
     const { data, error } = await this.client
-      .from('availability_blocks')
+      .from('hb_availability_blocks')
       .select(`
         *,
-        user:users(*)
+        user:hb_users(*)
       `)
       .eq('user_id', userId)
       .gte('start_time', startDate)
@@ -168,10 +179,10 @@ export class DatabaseClient {
 
   async getFamilyAvailability(familyId: string, startDate: string, endDate: string): Promise<AvailabilityWithUser[]> {
     const { data, error } = await this.client
-      .from('availability_blocks')
+      .from('hb_availability_blocks')
       .select(`
         *,
-        user:users!inner(*)
+        user:hb_users!inner(*)
       `)
       .eq('user.family_id', familyId)
       .gte('start_time', startDate)
@@ -183,11 +194,11 @@ export class DatabaseClient {
 
   async createAvailabilityBlock(block: AvailabilityInsert): Promise<AvailabilityWithUser> {
     const { data, error } = await this.client
-      .from('availability_blocks')
+      .from('hb_availability_blocks')
       .insert(block)
       .select(`
         *,
-        user:users(*)
+        user:hb_users(*)
       `)
       .single();
 
@@ -197,12 +208,12 @@ export class DatabaseClient {
 
   async updateAvailabilityBlock(blockId: string, updates: AvailabilityUpdate): Promise<AvailabilityWithUser> {
     const { data, error } = await this.client
-      .from('availability_blocks')
+      .from('hb_availability_blocks')
       .update(updates)
       .eq('id', blockId)
       .select(`
         *,
-        user:users(*)
+        user:hb_users(*)
       `)
       .single();
 
@@ -212,10 +223,10 @@ export class DatabaseClient {
 
   async deleteAvailabilityBlock(blockId: string) {
     const { error } = await this.client
-      .from('availability_blocks')
+      .from('hb_availability_blocks')
       .delete()
       .eq('id', blockId);
-    
+
     if (error) throw error;
     return { deleted: true };
   }
@@ -223,10 +234,10 @@ export class DatabaseClient {
   // Weekly totals operations
   async getWeeklyTotals(familyId: string, weekStart: string): Promise<WeeklyTotalsWithUser[]> {
     const { data, error } = await this.client
-      .from('weekly_totals')
+      .from('hb_weekly_totals')
       .select(`
         *,
-        user:users!inner(*)
+        user:hb_users!inner(*)
       `)
       .eq('user.family_id', familyId)
       .eq('week_start', weekStart);
@@ -237,11 +248,11 @@ export class DatabaseClient {
 
   async upsertWeeklyTotals(totals: WeeklyTotalsInsert): Promise<WeeklyTotalsWithUser> {
     const { data, error } = await this.client
-      .from('weekly_totals')
+      .from('hb_weekly_totals')
       .upsert(totals, { onConflict: 'user_id,week_start' })
       .select(`
         *,
-        user:users(*)
+        user:hb_users(*)
       `)
       .single();
 
@@ -252,21 +263,21 @@ export class DatabaseClient {
   // Integration operations
   async getIntegrationAccounts(familyId: string) {
     const { data, error } = await this.client
-      .from('integration_accounts')
+      .from('hb_integration_accounts')
       .select('*')
       .eq('family_id', familyId);
-    
+
     if (error) throw error;
     return data as IntegrationRow[];
   }
 
   async upsertIntegrationAccount(account: IntegrationInsert) {
     const { data, error } = await this.client
-      .from('integration_accounts')
+      .from('hb_integration_accounts')
       .upsert(account, { onConflict: 'family_id,provider,account_email' })
       .select('*')
       .single();
-    
+
     if (error) throw error;
     return data as IntegrationRow;
   }
@@ -274,7 +285,7 @@ export class DatabaseClient {
   // Event mapping operations
   async getEventMapping(taskId: string) {
     const { data, error } = await this.client
-      .from('homebase_event_map')
+      .from('hb_event_map')
       .select('*')
       .eq('task_id', taskId);
 
@@ -284,7 +295,7 @@ export class DatabaseClient {
 
   async createEventMapping(mapping: EventMapInsert) {
     const { data, error } = await this.client
-      .from('homebase_event_map')
+      .from('hb_event_map')
       .insert(mapping)
       .select('*')
       .single();
@@ -295,7 +306,7 @@ export class DatabaseClient {
 
   async deleteEventMapping(taskId: string, googleEventId?: string) {
     let query = this.client
-      .from('homebase_event_map')
+      .from('hb_event_map')
       .delete()
       .eq('task_id', taskId);
 

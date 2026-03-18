@@ -1,21 +1,22 @@
 -- Homebase Initial Schema Migration
--- Based on PRD database requirements
+-- All tables prefixed with hb_ to avoid conflicts on shared Supabase (CC&SS)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Families table
-CREATE TABLE families (
+CREATE TABLE hb_families (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     timezone VARCHAR(50) NOT NULL DEFAULT 'UTC',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Users table (parents)
-CREATE TABLE users (
+-- Users table (parents) - links to auth.users via id
+CREATE TABLE hb_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL REFERENCES hb_families(id) ON DELETE CASCADE,
     email VARCHAR(255) UNIQUE NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('parent_a', 'parent_b')),
     name VARCHAR(100) NOT NULL,
@@ -24,34 +25,34 @@ CREATE TABLE users (
 );
 
 -- Children table
-CREATE TABLE children (
+CREATE TABLE hb_children (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL REFERENCES hb_families(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    color VARCHAR(7) NOT NULL DEFAULT '#6366f1', -- hex color
+    color VARCHAR(7) NOT NULL DEFAULT '#6366f1',
     icon VARCHAR(50) NOT NULL DEFAULT 'child',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Tasks table (unified cyclical and project tasks)
-CREATE TABLE tasks (
+CREATE TABLE hb_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL REFERENCES hb_families(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     notes TEXT,
     due_date TIMESTAMP WITH TIME ZONE,
-    recurrence_rule VARCHAR(500), -- RRULE format
-    assignee_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    recurrence_rule VARCHAR(500),
+    assignee_user_id UUID REFERENCES hb_users(id) ON DELETE SET NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('cyclical', 'project')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Projects table (for additional project metadata)
-CREATE TABLE projects (
+CREATE TABLE hb_projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL REFERENCES hb_families(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -59,22 +60,22 @@ CREATE TABLE projects (
 );
 
 -- Availability blocks for parent scheduling
-CREATE TABLE availability_blocks (
+CREATE TABLE hb_availability_blocks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES hb_users(id) ON DELETE CASCADE,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('work', 'childcare', 'personal')),
     is_recurring BOOLEAN DEFAULT false,
-    recurrence_pattern VARCHAR(200), -- for recurring blocks
+    recurrence_pattern VARCHAR(200),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Weekly totals for work/childcare tracking
-CREATE TABLE weekly_totals (
+CREATE TABLE hb_weekly_totals (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES hb_users(id) ON DELETE CASCADE,
     week_start DATE NOT NULL,
     work_minutes INTEGER NOT NULL DEFAULT 0,
     childcare_minutes INTEGER NOT NULL DEFAULT 0,
@@ -84,12 +85,12 @@ CREATE TABLE weekly_totals (
 );
 
 -- Integration accounts (Google Calendar, etc.)
-CREATE TABLE integration_accounts (
+CREATE TABLE hb_integration_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    family_id UUID NOT NULL REFERENCES hb_families(id) ON DELETE CASCADE,
     provider VARCHAR(50) NOT NULL CHECK (provider IN ('google_calendar', 'google_maps')),
     account_email VARCHAR(255) NOT NULL,
-    calendars JSONB, -- store calendar metadata
+    calendars JSONB,
     access_token TEXT,
     refresh_token TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -98,9 +99,9 @@ CREATE TABLE integration_accounts (
 );
 
 -- Homebase event mapping for Google Calendar sync
-CREATE TABLE homebase_event_map (
+CREATE TABLE hb_event_map (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    task_id UUID NOT NULL REFERENCES hb_tasks(id) ON DELETE CASCADE,
     google_event_id VARCHAR(200) NOT NULL,
     calendar_id VARCHAR(200) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -109,20 +110,21 @@ CREATE TABLE homebase_event_map (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_users_family_id ON users(family_id);
-CREATE INDEX idx_children_family_id ON children(family_id);
-CREATE INDEX idx_tasks_family_id ON tasks(family_id);
-CREATE INDEX idx_tasks_assignee ON tasks(assignee_user_id);
-CREATE INDEX idx_tasks_due_date ON tasks(due_date);
-CREATE INDEX idx_projects_family_id ON projects(family_id);
-CREATE INDEX idx_availability_user_id ON availability_blocks(user_id);
-CREATE INDEX idx_availability_time_range ON availability_blocks(start_time, end_time);
-CREATE INDEX idx_weekly_totals_user_week ON weekly_totals(user_id, week_start);
-CREATE INDEX idx_integration_accounts_family ON integration_accounts(family_id);
-CREATE INDEX idx_event_map_task ON homebase_event_map(task_id);
+CREATE INDEX idx_hb_users_family_id ON hb_users(family_id);
+CREATE INDEX idx_hb_users_auth_user_id ON hb_users(auth_user_id);
+CREATE INDEX idx_hb_children_family_id ON hb_children(family_id);
+CREATE INDEX idx_hb_tasks_family_id ON hb_tasks(family_id);
+CREATE INDEX idx_hb_tasks_assignee ON hb_tasks(assignee_user_id);
+CREATE INDEX idx_hb_tasks_due_date ON hb_tasks(due_date);
+CREATE INDEX idx_hb_projects_family_id ON hb_projects(family_id);
+CREATE INDEX idx_hb_availability_user_id ON hb_availability_blocks(user_id);
+CREATE INDEX idx_hb_availability_time_range ON hb_availability_blocks(start_time, end_time);
+CREATE INDEX idx_hb_weekly_totals_user_week ON hb_weekly_totals(user_id, week_start);
+CREATE INDEX idx_hb_integration_accounts_family ON hb_integration_accounts(family_id);
+CREATE INDEX idx_hb_event_map_task ON hb_event_map(task_id);
 
--- Updated at trigger function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+-- Updated at trigger function (reuse if exists)
+CREATE OR REPLACE FUNCTION hb_update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -131,12 +133,12 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at triggers
-CREATE TRIGGER update_families_updated_at BEFORE UPDATE ON families FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_children_updated_at BEFORE UPDATE ON children FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_tasks_updated_at BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_availability_blocks_updated_at BEFORE UPDATE ON availability_blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_weekly_totals_updated_at BEFORE UPDATE ON weekly_totals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_integration_accounts_updated_at BEFORE UPDATE ON integration_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_homebase_event_map_updated_at BEFORE UPDATE ON homebase_event_map FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_hb_families_updated_at BEFORE UPDATE ON hb_families FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_users_updated_at BEFORE UPDATE ON hb_users FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_children_updated_at BEFORE UPDATE ON hb_children FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_tasks_updated_at BEFORE UPDATE ON hb_tasks FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_projects_updated_at BEFORE UPDATE ON hb_projects FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_availability_blocks_updated_at BEFORE UPDATE ON hb_availability_blocks FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_weekly_totals_updated_at BEFORE UPDATE ON hb_weekly_totals FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_integration_accounts_updated_at BEFORE UPDATE ON hb_integration_accounts FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
+CREATE TRIGGER update_hb_event_map_updated_at BEFORE UPDATE ON hb_event_map FOR EACH ROW EXECUTE FUNCTION hb_update_updated_at_column();
