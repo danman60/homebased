@@ -1,8 +1,7 @@
-// Weekly view API route
-
 import { NextRequest, NextResponse } from 'next/server';
 import { DatabaseClient, supabaseServer } from '@/lib/database/client';
 import { AlertsEngine } from '@/lib/alerts/engine';
+import { getAuthenticatedUser } from '@/lib/auth-helpers';
 import { startOfWeek, endOfWeek } from 'date-fns';
 
 const db = new DatabaseClient(supabaseServer);
@@ -10,8 +9,9 @@ const alertsEngine = new AlertsEngine(db);
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthenticatedUser();
     const { searchParams } = new URL(request.url);
-    const familyId = searchParams.get('familyId');
+    const familyId = searchParams.get('familyId') || user?.family_id;
     const startDateParam = searchParams.get('startDate');
 
     if (!familyId || !startDateParam) {
@@ -25,24 +25,17 @@ export async function GET(request: NextRequest) {
     const weekStart = startOfWeek(startDate, { weekStartsOn: 0 });
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
 
-    // Fetch all weekly data in parallel
     const [tasks, availability, weeklyTotalsData] = await Promise.all([
       db.getTasks(familyId, {
         startDate: weekStart.toISOString(),
         endDate: weekEnd.toISOString()
       }),
-      db.getFamilyAvailability(
-        familyId,
-        weekStart.toISOString(),
-        weekEnd.toISOString()
-      ),
+      db.getFamilyAvailability(familyId, weekStart.toISOString(), weekEnd.toISOString()),
       db.getWeeklyTotals(familyId, weekStart.toISOString().split('T')[0])
     ]);
 
-    // Generate alerts
     const alerts = await alertsEngine.generateAlerts(familyId, weekStart, weekEnd);
 
-    // Transform weekly totals data
     const weeklyTotals = weeklyTotalsData.map(total => ({
       userId: total.user_id,
       userName: total.user?.name ?? 'Unknown',
@@ -54,42 +47,17 @@ export async function GET(request: NextRequest) {
         : total.work_minutes > 0 ? Infinity : 0
     }));
 
-    // Default social blocks (Friday/Saturday evenings)
     const socialBlocks = [
-      {
-        id: 'social-friday',
-        dayOfWeek: 5,
-        startHour: 18,
-        endHour: 22,
-        label: 'Family/Social Time',
-        isDefault: true
-      },
-      {
-        id: 'social-saturday',
-        dayOfWeek: 6,
-        startHour: 18,
-        endHour: 22,
-        label: 'Family/Social Time',
-        isDefault: true
-      }
+      { id: 'social-friday', dayOfWeek: 5, startHour: 18, endHour: 22, label: 'Family/Social Time', isDefault: true },
+      { id: 'social-saturday', dayOfWeek: 6, startHour: 18, endHour: 22, label: 'Family/Social Time', isDefault: true }
     ];
 
-    const weeklyView = {
-      startDate: weekStart,
-      endDate: weekEnd,
-      tasks,
-      availabilityBlocks: availability,
-      alerts,
-      weeklyTotals,
-      socialBlocks
-    };
-
-    return NextResponse.json({ success: true, data: weeklyView });
+    return NextResponse.json({
+      success: true,
+      data: { startDate: weekStart, endDate: weekEnd, tasks, availabilityBlocks: availability, alerts, weeklyTotals, socialBlocks }
+    });
   } catch (error) {
     console.error('Error fetching weekly view:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch weekly view' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch weekly view' }, { status: 500 });
   }
 }

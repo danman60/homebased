@@ -8,7 +8,6 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  // Get hb_user profile
   const { data: hbUser } = await supabase
     .from('hb_users')
     .select('*, family:hb_families(*)')
@@ -17,11 +16,12 @@ export default async function DashboardPage() {
 
   if (!hbUser) redirect('/onboarding');
 
-  // Get family members (for parentIds)
   const { data: familyMembers } = await supabase
     .from('hb_users')
     .select('id, name, role')
     .eq('family_id', hbUser.family_id);
+
+  const members = (familyMembers || []) as Array<{ id: string; name: string; role: string }>;
 
   return (
     <DashboardClient
@@ -29,7 +29,8 @@ export default async function DashboardPage() {
       userId={hbUser.id}
       userName={hbUser.name}
       familyTimezone={hbUser.family?.timezone || 'UTC'}
-      parentIds={(familyMembers || []).map((m: { id: string }) => m.id)}
+      parentIds={members.map(m => m.id)}
+      familyMembers={members}
     />
   );
 }

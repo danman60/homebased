@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
     }
 
     const db = new DatabaseClient(supabaseServer);
+
+    // Get family timezone
+    const family = await db.getFamily(familyId);
+    const familyTimezone = family?.timezone || 'America/New_York';
     const adapter = new GoogleCalendarAdapter(
       {
         clientId: process.env.GOOGLE_CALENDAR_CLIENT_ID!,
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
       const result = await pullFromGoogleCalendar(adapter, db, familyId, parentIds);
       return NextResponse.json(result);
     } else if (action === 'push') {
-      const result = await pushToGoogleCalendar(adapter, db, familyId, parentIds, forceFullSync);
+      const result = await pushToGoogleCalendar(adapter, db, familyId, parentIds, forceFullSync, familyTimezone);
       return NextResponse.json(result);
     }
 
@@ -245,7 +249,8 @@ async function pushToGoogleCalendar(
   db: DatabaseClient,
   familyId: string,
   parentIds: string[],
-  forceFullSync: boolean = false
+  forceFullSync: boolean = false,
+  familyTimezone: string = 'America/New_York'
 ) {
   const result = {
     success: true,
@@ -320,11 +325,11 @@ async function pushToGoogleCalendar(
                   description: `${task.notes || ''}\n\n[Created by Homebase]`,
                   start: {
                     dateTime: dueDate,
-                    timeZone: 'America/New_York' // TODO: Get from family timezone
+                    timeZone: familyTimezone
                   },
                   end: {
                     dateTime: new Date(new Date(dueDate).getTime() + 3600000).toISOString(),
-                    timeZone: 'America/New_York'
+                    timeZone: familyTimezone
                   }
                 }
               );
@@ -339,11 +344,11 @@ async function pushToGoogleCalendar(
                   description: `${task.notes || ''}\n\n[Created by Homebase]`,
                   start: {
                     dateTime: dueDate,
-                    timeZone: 'America/New_York'
+                    timeZone: familyTimezone
                   },
                   end: {
                     dateTime: new Date(new Date(dueDate).getTime() + 3600000).toISOString(),
-                    timeZone: 'America/New_York'
+                    timeZone: familyTimezone
                   }
                 }
               );
