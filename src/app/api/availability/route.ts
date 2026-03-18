@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
 import { getAuthenticatedUser } from '@/lib/auth-helpers';
-
-const db = new DatabaseClient(supabaseServer);
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    const familyId = searchParams.get('familyId') || user?.family_id;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const userId = searchParams.get('userId');
 
-    if (!familyId || !startDate || !endDate) {
-      return NextResponse.json({ success: false, error: 'Family ID, start date, and end date are required' }, { status: 400 });
+    if (!startDate || !endDate) {
+      return NextResponse.json({ success: false, error: 'Start date and end date are required' }, { status: 400 });
     }
 
     const availability = userId
-      ? await db.getAvailabilityBlocks(userId, startDate, endDate)
-      : await db.getFamilyAvailability(familyId, startDate, endDate);
+      ? await auth.db.getAvailabilityBlocks(userId, startDate, endDate)
+      : await auth.db.getFamilyAvailability(auth.family_id, startDate, endDate);
 
     return NextResponse.json({ success: true, data: availability });
   } catch (error) {
@@ -30,8 +28,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
 
     const body = await request.json();
     const { block } = body;
@@ -40,8 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Start time, end time, and type are required' }, { status: 400 });
     }
 
-    const newBlock = await db.createAvailabilityBlock({
-      user_id: block.userId || user.id,
+    const newBlock = await auth.db.createAvailabilityBlock({
+      user_id: block.userId || auth.id,
       start_time: block.startTime,
       end_time: block.endTime,
       type: block.type,

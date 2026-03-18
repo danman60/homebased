@@ -16,10 +16,12 @@ interface SyncStatus {
 interface CalendarSyncProps {
   familyId: string;
   parentIds: string[];
+  userEmail?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSyncComplete?: (result: any) => void;
 }
 
-export function CalendarSync({ familyId, parentIds, onSyncComplete }: CalendarSyncProps) {
+export function CalendarSync({ familyId, parentIds, userEmail, onSyncComplete }: CalendarSyncProps) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isConnected: false,
     isLoading: false
@@ -59,7 +61,7 @@ export function CalendarSync({ familyId, parentIds, onSyncComplete }: CalendarSy
     try {
       // Start OAuth flow for Parent 1 (you can extend this for both parents)
       const parentId = parentIds[0];
-      const parentEmail = 'parent1@example.com'; // TODO: Get from user data
+      const parentEmail = userEmail || '';
       
       const authUrl = `/api/auth/google?familyId=${familyId}&parentId=${parentId}&parentEmail=${encodeURIComponent(parentEmail)}`;
       window.open(authUrl, '_blank', 'width=500,height=600,scrollbars=yes');

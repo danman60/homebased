@@ -1,20 +1,19 @@
-// Individual task API routes
-
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
-
-const db = new DatabaseClient(supabaseServer);
+import { getAuthenticatedUser } from '@/lib/auth-helpers';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+
     const { id: taskId } = await params;
     const body = await request.json();
     const { updates } = body;
 
-    const updatedTask = await db.updateTask(taskId, {
+    const updatedTask = await auth.db.updateTask(taskId, {
       ...(updates.title && { title: updates.title }),
       ...(updates.notes !== undefined && { notes: updates.notes }),
       ...(updates.dueDate !== undefined && { due_date: updates.dueDate || null }),
@@ -23,17 +22,10 @@ export async function PUT(
       ...(updates.type && { type: updates.type })
     });
 
-    return NextResponse.json({
-      success: true,
-      data: updatedTask,
-      message: 'Task updated successfully'
-    });
+    return NextResponse.json({ success: true, data: updatedTask });
   } catch (error) {
     console.error('Error updating task:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update task' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update task' }, { status: 500 });
   }
 }
 
@@ -42,19 +34,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: taskId } = await params;
-    await db.deleteTask(taskId);
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
 
-    return NextResponse.json({
-      success: true,
-      data: { deleted: true },
-      message: 'Task deleted successfully'
-    });
+    const { id: taskId } = await params;
+    await auth.db.deleteTask(taskId);
+
+    return NextResponse.json({ success: true, data: { deleted: true } });
   } catch (error) {
     console.error('Error deleting task:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete task' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to delete task' }, { status: 500 });
   }
 }

@@ -28,6 +28,7 @@ export default async function DashboardPage() {
       familyId={hbUser.family_id}
       userId={hbUser.id}
       userName={hbUser.name}
+      userEmail={hbUser.email}
       familyTimezone={hbUser.family?.timezone || 'UTC'}
       parentIds={members.map(m => m.id)}
       familyMembers={members}

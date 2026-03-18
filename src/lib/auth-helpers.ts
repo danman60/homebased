@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { DatabaseClient } from '@/lib/database/client';
 
-/** Get authenticated user's hb_user profile from cookies. Returns null if not authenticated. */
+/** Get authenticated user's hb_user profile + an authenticated DB client from cookies. */
 export async function getAuthenticatedUser() {
   const cookieStore = await cookies();
 
@@ -44,9 +45,14 @@ export async function getAuthenticatedUser() {
     .eq('id', hbUser.family_id)
     .single();
 
+  // Return an authenticated DatabaseClient that carries the user's session
+  const db = new DatabaseClient(supabase);
+
   return {
     ...hbUser,
     authUserId: user.id,
     timezone: family?.timezone || 'UTC',
+    db,
+    supabase,
   };
 }

@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
 import { getAuthenticatedUser } from '@/lib/auth-helpers';
-
-const db = new DatabaseClient(supabaseServer);
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    const familyId = searchParams.get('familyId') || user?.family_id;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const type = searchParams.get('type') as 'cyclical' | 'project' | null;
     const assigneeId = searchParams.get('assigneeId');
 
-    if (!familyId) {
-      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const tasks = await db.getTasks(familyId, {
+    const tasks = await auth.db.getTasks(auth.family_id, {
       ...(startDate && { startDate }),
       ...(endDate && { endDate }),
       ...(type && { type }),
@@ -34,10 +28,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
-    }
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
 
     const body = await request.json();
     const { task } = body;
@@ -46,8 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Title and type are required' }, { status: 400 });
     }
 
-    const newTask = await db.createTask({
-      family_id: user.family_id,
+    const newTask = await auth.db.createTask({
+      family_id: auth.family_id,
       title: task.title,
       notes: task.notes || null,
       due_date: task.dueDate || null,

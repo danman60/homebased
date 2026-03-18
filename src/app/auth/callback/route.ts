@@ -38,12 +38,14 @@ export async function GET(request: NextRequest) {
           .eq('auth_user_id', user.id)
           .single();
 
-        // If no profile, redirect to onboarding
+        // If no profile, redirect to onboarding — carry cookies from supabaseResponse
         if (!hbUser) {
-          const onboardingUrl = new URL('/onboarding', origin);
-          return NextResponse.redirect(onboardingUrl, {
-            headers: supabaseResponse.headers,
+          const onboardingRedirect = NextResponse.redirect(new URL('/onboarding', origin));
+          // Copy all Set-Cookie headers from the auth exchange response
+          supabaseResponse.headers.getSetCookie().forEach((cookie) => {
+            onboardingRedirect.headers.append('Set-Cookie', cookie);
           });
+          return onboardingRedirect;
         }
       }
 

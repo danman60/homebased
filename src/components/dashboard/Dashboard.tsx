@@ -13,9 +13,11 @@ interface DashboardProps {
   weeklyView: WeeklyView;
   familyId: string;
   parentIds: string[];
+  userEmail?: string;
   onTaskDrop?: (taskId: string, newDate: Date, newHour: number, assigneeId?: string) => void;
   onTaskEdit?: (taskId: string) => void;
   onAlertDismiss?: (alertId: string) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCalendarSync?: (result: any) => void;
 }
 
@@ -23,6 +25,7 @@ export function Dashboard({
   weeklyView,
   familyId,
   parentIds,
+  userEmail,
   onTaskDrop,
   onTaskEdit,
   onAlertDismiss,
@@ -55,6 +58,7 @@ export function Dashboard({
           <CalendarSync
             familyId={familyId}
             parentIds={parentIds}
+            userEmail={userEmail}
             onSyncComplete={onCalendarSync}
           />
           

@@ -12,12 +12,13 @@ interface DashboardClientProps {
   familyId: string;
   userId: string;
   userName: string;
+  userEmail: string;
   familyTimezone: string;
   parentIds: string[];
   familyMembers: Array<{ id: string; name: string; role: string }>;
 }
 
-export function DashboardClient({ familyId, userId, userName, familyTimezone, parentIds, familyMembers }: DashboardClientProps) {
+export function DashboardClient({ familyId, userId, userName, userEmail, familyTimezone, parentIds, familyMembers }: DashboardClientProps) {
   const [weeklyView, setWeeklyView] = useState<WeeklyView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -143,6 +144,7 @@ export function DashboardClient({ familyId, userId, userName, familyTimezone, pa
         weeklyView={weeklyView}
         familyId={familyId}
         parentIds={parentIds}
+        userEmail={userEmail}
         onTaskDrop={async (taskId, newDate) => {
           await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',

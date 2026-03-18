@@ -1,40 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DatabaseClient, supabaseServer } from '@/lib/database/client';
 import { AlertsEngine } from '@/lib/alerts/engine';
 import { getAuthenticatedUser } from '@/lib/auth-helpers';
 import { startOfWeek, endOfWeek } from 'date-fns';
 
-const db = new DatabaseClient(supabaseServer);
-const alertsEngine = new AlertsEngine(db);
-
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
+    const auth = await getAuthenticatedUser();
+    if (!auth) return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 });
+
     const { searchParams } = new URL(request.url);
-    const familyId = searchParams.get('familyId') || user?.family_id;
     const startDateParam = searchParams.get('startDate');
 
-    if (!familyId || !startDateParam) {
-      return NextResponse.json(
-        { success: false, error: 'Family ID and start date are required' },
-        { status: 400 }
-      );
+    if (!startDateParam) {
+      return NextResponse.json({ success: false, error: 'Start date is required' }, { status: 400 });
     }
 
     const startDate = new Date(startDateParam);
     const weekStart = startOfWeek(startDate, { weekStartsOn: 0 });
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 0 });
 
+    const alertsEngine = new AlertsEngine(auth.db);
+
     const [tasks, availability, weeklyTotalsData] = await Promise.all([
-      db.getTasks(familyId, {
+      auth.db.getTasks(auth.family_id, {
         startDate: weekStart.toISOString(),
         endDate: weekEnd.toISOString()
       }),
-      db.getFamilyAvailability(familyId, weekStart.toISOString(), weekEnd.toISOString()),
-      db.getWeeklyTotals(familyId, weekStart.toISOString().split('T')[0])
+      auth.db.getFamilyAvailability(auth.family_id, weekStart.toISOString(), weekEnd.toISOString()),
+      auth.db.getWeeklyTotals(auth.family_id, weekStart.toISOString().split('T')[0])
     ]);
 
-    const alerts = await alertsEngine.generateAlerts(familyId, weekStart, weekEnd);
+    const alerts = await alertsEngine.generateAlerts(auth.family_id, weekStart, weekEnd);
 
     const weeklyTotals = weeklyTotalsData.map(total => ({
       userId: total.user_id,
