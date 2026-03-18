@@ -1,31 +1,54 @@
 # Current Work - Homebase
 
 ## Active Task
-All code phases complete. Waiting on manual setup steps.
+All code complete. Deployed to Vercel. Verified. Waiting on 2 manual steps.
 
-## What's Built (All Code Complete)
-- **Phase 0**: Ported all code from /mnt/data/, fixed build errors, hb_ table prefixes
-- **Phase 1**: DB schema (9 hb_ tables + RLS) deployed to CC&SS Supabase
-- **Phase 1**: Auth middleware, Google OAuth login, callback with onboarding redirect
-- **Phase 2**: Dashboard server page fetches hb_user profile, redirects to onboarding if needed
-- **Phase 3**: Task CRUD modal (create/edit/delete), drag-drop reschedule, assignee picker
-- **Phase 4**: Alerts engine fully implemented (5 rule categories), availability API with auth
-- **Phase 5**: Google Calendar sync with family timezone from DB (no more hardcoded)
-- **Phase 6**: Vercel config, responsive components, all API routes use auth context
+## Recent Changes (2026-03-18 Session)
+- Ported full codebase from /mnt/data/d/ClaudeCode/homebased
+- Fixed 15+ build errors (type mismatches, Supabase generics, null vs undefined)
+- Prefixed all tables with hb_ for shared CC&SS Supabase
+- Deployed schema (9 tables + RLS + triggers + indexes) to CC&SS
+- Built auth layer: middleware, Google OAuth login, callback, onboarding
+- Built task CRUD modal (create/edit/delete with assignee picker)
+- All API routes use authenticated cookie-based Supabase client
+- /verify caught 5 critical issues — all fixed:
+  - RLS bypass (supabaseServer had no cookies)
+  - Missing auth on PUT/DELETE tasks
+  - Missing INSERT policy on hb_families
+  - Join Family RLS blocked reads
+  - seed.sql wrong table names
+- Cleaned up orphaned files, fixed Tailwind warning, added error display on login
+- Filled Google OAuth credentials from ~/.env.keys into .env.local + Vercel
+- Updated Next.js to 16.1.7 for Vercel security requirement
+- Deployed to https://homebased.vercel.app
 
-## Manual Steps Remaining (User Must Do)
-1. Google Cloud Console: Add redirect URI `https://netbsyvxrhrqxyzqflmd.supabase.co/auth/v1/callback`
+## Manual Steps Remaining (User)
+1. Google Cloud Console: Add redirect URI `https://netbsyvxrhrqxyzqflmd.supabase.co/auth/v1/callback` to OAuth client 6389...8ff9
 2. Supabase Dashboard → Auth → Providers → Google: Enable with client ID + secret
-3. Vercel: Import repo, set env vars (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET)
-4. Supabase Dashboard → Auth → URL Config: Add Vercel deploy URL to redirect allowlist
+3. Supabase Dashboard → Auth → URL Config: Add `https://homebased.vercel.app` to redirect URLs
 
-## Key Files
-- `src/middleware.ts` — Auth middleware
-- `src/app/auth/login/page.tsx` — Google OAuth login
-- `src/app/auth/callback/route.ts` — OAuth callback + onboarding check
-- `src/app/onboarding/page.tsx` — Create/join family
-- `src/app/dashboard/page.tsx` — Server component (auth + data fetch)
-- `src/app/dashboard/client.tsx` — Client component (weekly view + task CRUD)
-- `src/components/task-modal/TaskModal.tsx` — Task create/edit/delete modal
-- `src/lib/auth-helpers.ts` — getAuthenticatedUser() for API routes
-- `src/lib/database/client.ts` — All DB ops with hb_ prefixed tables
+## Architecture
+- **Framework:** Next.js 16, React 19, TypeScript, Tailwind 4
+- **DB:** Supabase CC&SS project, hb_ prefixed tables, RLS with auth.uid()
+- **Auth:** Supabase Auth with Google OAuth provider
+- **Deploy:** Vercel (homebased.vercel.app)
+- **Key files:**
+  - src/middleware.ts — route protection + session refresh
+  - src/lib/auth-helpers.ts — getAuthenticatedUser() returns user + authenticated db client
+  - src/lib/database/client.ts — DatabaseClient with hb_ table queries
+  - src/app/auth/ — login + callback routes
+  - src/app/onboarding/page.tsx — create/join family
+  - src/app/dashboard/ — server page (auth) + client (weekly view + task CRUD)
+  - src/components/task-modal/TaskModal.tsx — create/edit/delete tasks
+  - src/components/dashboard/ — Dashboard, WeeklyGrid, AlertsPanel, CalendarSync, WeeklyStats
+  - src/lib/alerts/engine.ts — 5 alert categories
+  - src/lib/integrations/google-calendar.ts — OAuth + bidirectional sync
+
+## Future Work (Next Session)
+- Availability block creation UI
+- Task filtering (by type, assignee, date)
+- Settings page (family timezone, children, invite partner)
+- Persistent nav layout
+- Error boundaries
+- Drag-drop conflict detection
+- Write fresh Playwright tests with /write-tests
