@@ -1,27 +1,31 @@
 # Current Work - Homebase
 
 ## Active Task
-Rebuild plan created. Waiting for user decisions before starting Phase 0.
+All code phases complete. Waiting on manual setup steps.
 
-## Recent Changes (This Session)
-- Explored both repos: ~/projects/homebased (blank template) and /mnt/data/d/ClaudeCode/homebased (developed code)
-- Created detailed rebuild plan at docs/plans/2026-03-18-rebuild-plan.md
+## What's Built (All Code Complete)
+- **Phase 0**: Ported all code from /mnt/data/, fixed build errors, hb_ table prefixes
+- **Phase 1**: DB schema (9 hb_ tables + RLS) deployed to CC&SS Supabase
+- **Phase 1**: Auth middleware, Google OAuth login, callback with onboarding redirect
+- **Phase 2**: Dashboard server page fetches hb_user profile, redirects to onboarding if needed
+- **Phase 3**: Task CRUD modal (create/edit/delete), drag-drop reschedule, assignee picker
+- **Phase 4**: Alerts engine fully implemented (5 rule categories), availability API with auth
+- **Phase 5**: Google Calendar sync with family timezone from DB (no more hardcoded)
+- **Phase 6**: Vercel config, responsive components, all API routes use auth context
 
-## Blockers / Open Questions
-1. Which Supabase project to use? (CC&SS shared, or new dedicated?)
-2. Google Calendar integration priority? (Now or defer?)
-3. Auth method? (Email/password, Google OAuth, magic link?)
-4. Single-tenant (your family) or multi-family SaaS?
-5. Deploy to Vercel?
-6. Include Google Maps travel time or defer?
+## Manual Steps Remaining (User Must Do)
+1. Google Cloud Console: Add redirect URI `https://netbsyvxrhrqxyzqflmd.supabase.co/auth/v1/callback`
+2. Supabase Dashboard → Auth → Providers → Google: Enable with client ID + secret
+3. Vercel: Import repo, set env vars (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET)
+4. Supabase Dashboard → Auth → URL Config: Add Vercel deploy URL to redirect allowlist
 
-## Next Steps
-1. Get answers to decision points
-2. Start Phase 0: Port code from /mnt/data/ to active repo
-3. Phase 1: Supabase + Auth setup
-
-## Context for Next Session
-- Source code is at /mnt/data/d/ClaudeCode/homebased (read-only old drive)
-- Active repo at ~/projects/homebased has 1 commit (blank Next.js template)
-- Full analysis of what's broken documented in the plan file
-- Key blockers: hardcoded family ID, no auth middleware, landing page not connected to dashboard
+## Key Files
+- `src/middleware.ts` — Auth middleware
+- `src/app/auth/login/page.tsx` — Google OAuth login
+- `src/app/auth/callback/route.ts` — OAuth callback + onboarding check
+- `src/app/onboarding/page.tsx` — Create/join family
+- `src/app/dashboard/page.tsx` — Server component (auth + data fetch)
+- `src/app/dashboard/client.tsx` — Client component (weekly view + task CRUD)
+- `src/components/task-modal/TaskModal.tsx` — Task create/edit/delete modal
+- `src/lib/auth-helpers.ts` — getAuthenticatedUser() for API routes
+- `src/lib/database/client.ts` — All DB ops with hb_ prefixed tables
